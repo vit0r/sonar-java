@@ -19,19 +19,20 @@
  */
 package org.sonar.java.bytecode.loader;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.Iterators;
 import com.google.common.io.ByteStreams;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
 import javax.annotation.CheckForNull;
 import org.apache.commons.lang.ArrayUtils;
+import org.sonar.java.AnalysisException;
 import org.sonar.java.resolve.Convert;
 
 /**
@@ -45,7 +46,7 @@ public class SquidClassLoader extends ClassLoader implements Closeable {
    * @param files ordered list of files and directories from which to load classes and resources
    */
   public SquidClassLoader(List<File> files) {
-    super(null);
+    super(computeParent());
     loaders = new ArrayList<>();
     for (File file : files) {
       if (file.exists()) {
@@ -57,6 +58,14 @@ public class SquidClassLoader extends ClassLoader implements Closeable {
           loaders.add(new AarLoader(file));
         }
       }
+    }
+  }
+
+  private static ClassLoader computeParent() {
+    try {
+      return (ClassLoader) ClassLoader.class.getMethod("getPlatformClassLoader").invoke(null);
+    } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+      return null;
     }
   }
 
@@ -111,7 +120,7 @@ public class SquidClassLoader extends ClassLoader implements Closeable {
       }
       return ByteStreams.toByteArray(is);
     } catch (IOException e) {
-      throw Throwables.propagate(e);
+      throw new AnalysisException("An IOException occurred in SonarJava classLoader.",e);
     }
   }
 
