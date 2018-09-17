@@ -25,13 +25,16 @@ import org.sonar.api.SonarQubeSide;
 import org.sonar.api.SonarRuntime;
 import org.sonar.api.internal.SonarRuntimeImpl;
 import org.sonar.api.utils.Version;
+import org.sonar.java.AnalysisWarningsWrapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.sonar.plugins.java.JavaPlugin.ANALYSIS_WARNINGS_MIN_SUPPORTED_SQ_VERSION;
 
 public class JavaPluginTest {
 
   private static final Version VERSION_6_7 = Version.create(6, 7);
   private static final Version VERSION_7_2 = Version.create(7, 2);
+  private static final Version VERSION_7_4 = Version.create(7, 4);
   private JavaPlugin javaPlugin = new JavaPlugin();
 
   @Test
@@ -66,4 +69,29 @@ public class JavaPluginTest {
     assertThat(context.getExtensions()).hasSize(34);
   }
 
+  @Test
+  public void sonarqube_7_4_extensions() {
+    SonarRuntime runtime = SonarRuntimeImpl.forSonarQube(VERSION_7_4, SonarQubeSide.SERVER);
+    Plugin.Context context = new Plugin.Context(runtime);
+    javaPlugin.define(context);
+    assertThat(context.getExtensions()).hasSize(35);
+  }
+
+  @Test
+  public void use_AnalysisWarningsWrapper_before_SQ_7_4_and_sonarlint() {
+    SonarRuntime runtime = SonarRuntimeImpl.forSonarQube(Version.create(7, 3), SonarQubeSide.SCANNER);
+    Plugin.Context context = new Plugin.Context(runtime);
+    javaPlugin.define(context);
+    assertThat(context.getExtensions()).doesNotContain(AnalysisWarningsWrapper.class);
+
+    runtime = SonarRuntimeImpl.forSonarQube(ANALYSIS_WARNINGS_MIN_SUPPORTED_SQ_VERSION, SonarQubeSide.SCANNER);
+    context = new Plugin.Context(runtime);
+    javaPlugin.define(context);
+    assertThat(context.getExtensions()).contains(AnalysisWarningsWrapper.class);
+
+    runtime = SonarRuntimeImpl.forSonarLint(ANALYSIS_WARNINGS_MIN_SUPPORTED_SQ_VERSION);
+    context = new Plugin.Context(runtime);
+    javaPlugin.define(context);
+    assertThat(context.getExtensions()).doesNotContain(AnalysisWarningsWrapper.class);
+  }
 }
